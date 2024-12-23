@@ -45,6 +45,11 @@
 			path = catVsDogRecognizerUITests;
 			sourceTree = "<group>";
 		};
+		C87E54222D1988E300C5CEA2 /* resources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = resources;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +84,7 @@
 				C87E53F72D1983EE00C5CEA2 /* catVsDogRecognizerTests */,
 				C87E54012D1983EE00C5CEA2 /* catVsDogRecognizerUITests */,
 				C87E53E52D1983EB00C5CEA2 /* Products */,
+				C87E54222D1988E300C5CEA2 /* resources */,
 			);
 			sourceTree = "<group>";
 		};
@@ -109,6 +115,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				C87E53E62D1983EB00C5CEA2 /* catVsDogRecognizer */,
+				C87E54222D1988E300C5CEA2 /* resources */,
 			);
 			name = catVsDogRecognizer;
 			packageProductDependencies = (
