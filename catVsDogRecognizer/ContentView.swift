@@ -30,18 +30,24 @@ struct ContentView: View {
                 .disabled(true)
                 .padding()
             Button(action: {
-                Task {
-                    imageURL = await randomImageURL()
-                    await loadImage()
-                    classifyImage()
-                }
-
+                timer != nil ? stopTimer() : startTimer()
             }) {
-                Text("Load & Detect")
+                Text( timer != nil ? "Stop" : "Start")
+                    .font(.largeTitle) // Optional: Increase font size
+                    .frame(width: 200, height: 80) // Set a fixed width and height
+                    .background(Color.blue) // Optional: Add background color
+                    .foregroundColor(.white) // Optional: Change text color
+                    .cornerRadius(10) // Optional: Add rounded corners
+                    .padding()
             }
 
             if ((loadedImage) != nil) {
                 Image(uiImage: loadedImage!)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 500, height: 500)
+            } else {
+                Image("placeholder")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 500, height: 500)
@@ -59,6 +65,12 @@ struct ContentView: View {
     }
 
     private func startTimer() {
+        Task {
+            imageURL = await randomImageURL()
+            await loadImage()
+            classifyImage()
+        }
+
         timer = Timer.publish(every: 5, on: .main, in: .common)
             .autoconnect()
             .sink { _ in
