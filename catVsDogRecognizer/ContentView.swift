@@ -13,47 +13,23 @@ import UIKit
 import CoreVideo
 import Vision
 
-extension UIImage {
-    func resized(to targetSize: CGSize) -> UIImage {
-        let size = self.size
-        
-        let widthRatio  = targetSize.width  / size.width
-        let heightRatio = targetSize.height / size.height
-        
-        // Determine what ratio to use to ensure the image is scaled properly
-        let ratio = min(widthRatio, heightRatio)
-        
-        // Calculate the new size
-        let newSize = CGSize(width: size.width * ratio, height: size.height * ratio)
-        
-        // Create a new graphics context
-        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
-        self.draw(in: CGRect(origin: .zero, size: newSize))
-        let newImage = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
-        
-        return newImage!
-    }
-}
-
 struct ContentView: View {
 
-    @State var isCat = false
-    @State private var imageURL: String =
-    /// test strings
-//        "https://images.pexels.com/photos/257540/pexels-photo-257540.jpeg"
-        "https://upload.wikimedia.org/wikipedia/commons/c/c4/Cat-bg.jpg"
-    /// https://images.pexels.com/photos/257540/pexels-photo-257540.jpeg
-    /// https://upload.wikimedia.org/wikipedia/commons/4/43/Cute_dog.jpg
+    @State private var label: String = "???"
+    private var catURL = "https://cataas.com/cat"
+    private var dogURL = "https://dog.ceo/api/breeds/image/random"
+    @State private var imageURL: String = ""
     @State private var loadedImage: UIImage?
 
     var body: some View {
         VStack {
             TextField("Enter image URL", text: $imageURL)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
+                .disabled(true)
                 .padding()
             Button(action: {
                 Task {
+                    imageURL = await randomImageURL()
                     await loadImage()
                     classifyImage()
                 }
@@ -62,30 +38,37 @@ struct ContentView: View {
                 Text("Load & Detect")
             }
 
-            // TODO: improve the check
             if ((loadedImage) != nil) {
                 Image(uiImage: loadedImage!)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 300, height: 300)
-
-            } else {
-//                Image("dog.1")
-//                .resizable()
-//                .aspectRatio(contentMode: .fit)
-//                .frame(width: 300, height: 300)
-//                .onAppear {
-//                    classifyImage()
-//                }
+                    .frame(width: 500, height: 500)
             }
 
-            Text(isCat ? "Cat" : "Dog")
+            Text(label)
         }
         .padding()
-        .onAppear {
-            loadedImage = UIImage(named: "dog.1")
-            classifyImage()
+    }
+
+    private func randomImageURL() async -> String {
+        let cat = Bool.random()
+        if (cat) {
+            return catURL
         }
+
+        struct Dog: Codable {
+            let message: String
+        }        
+
+        // TODO: get rid of !
+        let result = try? await URLSession.shared.data(from: URL(string: dogURL)!)
+
+        guard let data = result?.0 else {
+            return ""
+        }
+        let dogURL = try! JSONDecoder().decode(Dog.self, from: data)
+
+        return dogURL.message
     }
 
     private func loadImage() async {
@@ -97,7 +80,6 @@ struct ContentView: View {
     }
 
     private func classifyImageViaVision() {
-        // TODO: get rid of !
         guard let loadedImage else {
             return
         }
@@ -106,9 +88,7 @@ struct ContentView: View {
         let animalRecognizer = try? animalRecognizer(configuration: defaultConfig)
         let visionModel = try? VNCoreMLModel(for: animalRecognizer!.model)
 
-        let imageToClassify = UIImage(named: "dog.1")!
-
-        // VNCoreMLRequest works only on actual device ...
+        let imageToClassify = loadedImage
         let imageClassificationRequest = VNCoreMLRequest(model: visionModel!, completionHandler: { request, error in
             guard let results = request.results as? [VNClassificationObservation] else {
                 return
@@ -126,19 +106,20 @@ struct ContentView: View {
     }
 
     private func classifyImageDirect() {
-        // TODO: get rid of !
-        guard let loadedImage else {
+        guard let cgImageToClassify = loadedImage?.cgImage else {
             return
         }
-
-        let animalRecognizer = try? animalRecognizer()
-        let imageToClassify = loadedImage
-        let input = try! animalRecognizerInput.init(imageWith: imageToClassify.cgImage!)
-        let result = try? animalRecognizer?.prediction(input: input)
+        guard let input = try? animalRecognizerInput.init(imageWith: cgImageToClassify) else {
+            return
+        }
+        guard let animalRecognizer = try? animalRecognizer() else {
+            return
+        }
+        let result = try? animalRecognizer.prediction(input: input)
 
         print("\(result?.target)")
         DispatchQueue.main.async {
-            self.isCat = result!.target == "cat"
+            label = result!.target
         }
     }
 
