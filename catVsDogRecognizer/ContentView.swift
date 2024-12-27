@@ -12,6 +12,7 @@ import CoreML
 import UIKit
 import CoreVideo
 import Vision
+import Combine
 
 struct ContentView: View {
 
@@ -20,6 +21,7 @@ struct ContentView: View {
     private var dogURL = "https://dog.ceo/api/breeds/image/random"
     @State private var imageURL: String = ""
     @State private var loadedImage: UIImage?
+    @State private var timer: AnyCancellable?
 
     var body: some View {
         VStack {
@@ -48,6 +50,29 @@ struct ContentView: View {
             Text(label)
         }
         .padding()
+                .onAppear {
+            startTimer()
+        }
+        .onDisappear {
+            stopTimer()
+        }
+    }
+
+    private func startTimer() {
+        timer = Timer.publish(every: 5, on: .main, in: .common)
+            .autoconnect()
+            .sink { _ in
+                Task {
+                    imageURL = await randomImageURL()
+                    await loadImage()
+                    classifyImage()
+                }
+            }
+    }
+
+    private func stopTimer() {
+        timer?.cancel()
+        timer = nil
     }
 
     private func randomImageURL() async -> String {
