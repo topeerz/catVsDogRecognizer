@@ -12,6 +12,47 @@ import CoreML
 import UIKit
 import CoreVideo
 
+import UIKit
+import CoreVideo
+
+extension CVPixelBuffer {
+    func toUIImage() -> UIImage? {
+        // Lock the base address of the pixel buffer
+        CVPixelBufferLockBaseAddress(self, .readOnly)
+
+        defer {
+            // Unlock the pixel buffer
+            CVPixelBufferUnlockBaseAddress(self, .readOnly)
+        }
+
+        // Get the pixel buffer's width and height
+        let width = CVPixelBufferGetWidth(self)
+        let height = CVPixelBufferGetHeight(self)
+
+        // Create a color space
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+
+        // Create a CGContext
+        guard let context = CGContext(data: CVPixelBufferGetBaseAddress(self),
+                                      width: width,
+                                      height: height,
+                                      bitsPerComponent: 8,
+                                      bytesPerRow: CVPixelBufferGetBytesPerRow(self),
+                                      space: colorSpace,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            return nil
+        }
+
+        // Create a CGImage from the context
+        guard let cgImage = context.makeImage() else {
+            return nil
+        }
+
+        // Create a UIImage from the CGImage
+        return UIImage(cgImage: cgImage)
+    }
+}
+
 extension UIImage {
     func toCVPixelBuffer() -> CVPixelBuffer? {
         let width = Int(self.size.width)
@@ -61,32 +102,76 @@ extension UIImage {
 struct ContentView: View {
 
     @State var isCat = false
+    @State private var imageURL: String = "https://images.pexels.com/photos/257540/pexels-photo-257540.jpeg"
+    /// test strings
+    /// https://upload.wikimedia.org/wikipedia/commons/c/c4/Cat-bg.jpg
+    /// https://images.pexels.com/photos/257540/pexels-photo-257540.jpeg
+    /// https://upload.wikimedia.org/wikipedia/commons/4/43/Cute_dog.jpg
+    @State private var loadedImage: UIImage?
 
     var body: some View {
         VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-            Image("cat.1")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 300, height: 300)
-            Text(isCat ? "Cat" : "Dog")
+            TextField("Enter image URL", text: $imageURL)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding()
+            Button(action: {
+                Task {
+                    await loadImage()
+                    classifyImage()
+                }
 
+            }) {
+                Text("Load & Detect")
+            }
+
+            // TODO: improve the check
+            if ((loadedImage) != nil) {
+                Image(uiImage: loadedImage!)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 300, height: 300)
+
+            } else {
+//                Image("dog.1")
+//                .resizable()
+//                .aspectRatio(contentMode: .fit)
+//                .frame(width: 300, height: 300)
+//                .onAppear {
+//                    classifyImage()
+//                }
+            }
+
+            Text(isCat ? "Cat" : "Dog")
         }
         .padding()
         .onAppear {
+            loadedImage = UIImage(named: "dog.1")
             classifyImage()
+        }
+    }
+
+    private func loadImage() async {
+        loadedImage = nil
+        let result = try? await URLSession.shared.data(from: URL(string: self.imageURL)!)
+        if let data = result?.0, let image = UIImage(data: data) {
+            loadedImage = image;
         }
     }
 
     private func classifyImage() {
         // TODO: get rid of !
-        let imageToClassify = UIImage(named: "cat.1")!.toCVPixelBuffer()! // Load the image
+        guard let loadedImage else {
+            return
+        }
+
+//        let imageToClassify = loadedImage
+        let imageToClassify = UIImage(named: "dog.1")!
+
+        let input = try! animalRecognizerInput.init(imageWith: imageToClassify.cgImage!)
         let animalRecognizer = try? animalRecognizer()
-        
-        let result = try? animalRecognizer?.prediction(image: imageToClassify)
+
+        let result = try? animalRecognizer?.prediction(input: input)
+        print("\(result?.target)")
         DispatchQueue.main.async {
             self.isCat = result!.target == "cat"
         }
