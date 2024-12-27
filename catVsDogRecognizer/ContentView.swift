@@ -11,47 +11,7 @@ import SwiftUI
 import CoreML
 import UIKit
 import CoreVideo
-
-import UIKit
-import CoreVideo
-
-extension CVPixelBuffer {
-    func toUIImage() -> UIImage? {
-        // Lock the base address of the pixel buffer
-        CVPixelBufferLockBaseAddress(self, .readOnly)
-
-        defer {
-            // Unlock the pixel buffer
-            CVPixelBufferUnlockBaseAddress(self, .readOnly)
-        }
-
-        // Get the pixel buffer's width and height
-        let width = CVPixelBufferGetWidth(self)
-        let height = CVPixelBufferGetHeight(self)
-
-        // Create a color space
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-
-        // Create a CGContext
-        guard let context = CGContext(data: CVPixelBufferGetBaseAddress(self),
-                                      width: width,
-                                      height: height,
-                                      bitsPerComponent: 8,
-                                      bytesPerRow: CVPixelBufferGetBytesPerRow(self),
-                                      space: colorSpace,
-                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
-            return nil
-        }
-
-        // Create a CGImage from the context
-        guard let cgImage = context.makeImage() else {
-            return nil
-        }
-
-        // Create a UIImage from the CGImage
-        return UIImage(cgImage: cgImage)
-    }
-}
+import Vision
 
 extension UIImage {
     func resized(to targetSize: CGSize) -> UIImage {
@@ -76,58 +36,13 @@ extension UIImage {
     }
 }
 
-extension UIImage {
-    func toCVPixelBuffer() -> CVPixelBuffer? {
-        let width = Int(self.size.width)
-        let height = Int(self.size.height)
-
-        // Create pixel buffer attributes
-        let attributes: [String: Any] = [
-            kCVPixelBufferCGImageCompatibilityKey as String: true,
-            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
-        ]
-
-        // Create the pixel buffer
-        var pixelBuffer: CVPixelBuffer?
-        let status = CVPixelBufferCreate(kCFAllocatorDefault,
-                                          width,
-                                          height,
-                                          kCVPixelFormatType_32BGRA,
-                                          attributes as CFDictionary,
-                                          &pixelBuffer)
-
-        guard status == noErr, let buffer = pixelBuffer else {
-            return nil
-        }
-
-        // Lock the pixel buffer
-        CVPixelBufferLockBaseAddress(buffer, [])
-
-        // Create a context to draw the image
-        let context = CGContext(data: CVPixelBufferGetBaseAddress(buffer),
-                                width: width,
-                                height: height,
-                                bitsPerComponent: 8,
-                                bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
-                                space: CGColorSpaceCreateDeviceRGB(),
-                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-
-        // Draw the image into the context
-        context?.draw(self.cgImage!, in: CGRect(x: 0, y: 0, width: width, height: height))
-
-        // Unlock the pixel buffer
-        CVPixelBufferUnlockBaseAddress(buffer, [])
-
-        return buffer
-    }
-}
-
 struct ContentView: View {
 
     @State var isCat = false
-    @State private var imageURL: String = "https://images.pexels.com/photos/257540/pexels-photo-257540.jpeg"
+    @State private var imageURL: String =
     /// test strings
-    /// https://upload.wikimedia.org/wikipedia/commons/c/c4/Cat-bg.jpg
+//        "https://images.pexels.com/photos/257540/pexels-photo-257540.jpeg"
+        "https://upload.wikimedia.org/wikipedia/commons/c/c4/Cat-bg.jpg"
     /// https://images.pexels.com/photos/257540/pexels-photo-257540.jpeg
     /// https://upload.wikimedia.org/wikipedia/commons/4/43/Cute_dog.jpg
     @State private var loadedImage: UIImage?
@@ -181,23 +96,55 @@ struct ContentView: View {
         }
     }
 
-    private func classifyImage() {
+    private func classifyImageViaVision() {
         // TODO: get rid of !
         guard let loadedImage else {
             return
         }
 
-//        let imageToClassify = loadedImage
-        let imageToClassify = UIImage(named: "dog.1")!.resized(to: CGSize(width: 360, height: 360))
+        let defaultConfig = MLModelConfiguration()
+        let animalRecognizer = try? animalRecognizer(configuration: defaultConfig)
+        let visionModel = try? VNCoreMLModel(for: animalRecognizer!.model)
 
-        let input = try! animalRecognizerInput.init(imageWith: imageToClassify.cgImage!)
+        let imageToClassify = UIImage(named: "dog.1")!
+
+        // VNCoreMLRequest works only on actual device ...
+        let imageClassificationRequest = VNCoreMLRequest(model: visionModel!, completionHandler: { request, error in
+            guard let results = request.results as? [VNClassificationObservation] else {
+                return
+            }
+            guard let firstResult = results.first else {
+                return
+            }
+            print(firstResult.identifier)
+        })
+
+        let cgImage = imageToClassify.cgImage!
+        let orientation = CGImagePropertyOrientation.up
+        let requestHandler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation)
+        try! requestHandler.perform([imageClassificationRequest])
+    }
+
+    private func classifyImageDirect() {
+        // TODO: get rid of !
+        guard let loadedImage else {
+            return
+        }
+
         let animalRecognizer = try? animalRecognizer()
-
+        let imageToClassify = loadedImage
+        let input = try! animalRecognizerInput.init(imageWith: imageToClassify.cgImage!)
         let result = try? animalRecognizer?.prediction(input: input)
+
         print("\(result?.target)")
         DispatchQueue.main.async {
             self.isCat = result!.target == "cat"
         }
+    }
+
+    private func classifyImage() {
+//        classifyImageViaVision()
+        classifyImageDirect()
     }
 }
 
