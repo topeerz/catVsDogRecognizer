@@ -54,6 +54,29 @@ extension CVPixelBuffer {
 }
 
 extension UIImage {
+    func resized(to targetSize: CGSize) -> UIImage {
+        let size = self.size
+        
+        let widthRatio  = targetSize.width  / size.width
+        let heightRatio = targetSize.height / size.height
+        
+        // Determine what ratio to use to ensure the image is scaled properly
+        let ratio = min(widthRatio, heightRatio)
+        
+        // Calculate the new size
+        let newSize = CGSize(width: size.width * ratio, height: size.height * ratio)
+        
+        // Create a new graphics context
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        self.draw(in: CGRect(origin: .zero, size: newSize))
+        let newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        return newImage!
+    }
+}
+
+extension UIImage {
     func toCVPixelBuffer() -> CVPixelBuffer? {
         let width = Int(self.size.width)
         let height = Int(self.size.height)
@@ -165,7 +188,7 @@ struct ContentView: View {
         }
 
 //        let imageToClassify = loadedImage
-        let imageToClassify = UIImage(named: "dog.1")!
+        let imageToClassify = UIImage(named: "dog.1")!.resized(to: CGSize(width: 360, height: 360))
 
         let input = try! animalRecognizerInput.init(imageWith: imageToClassify.cgImage!)
         let animalRecognizer = try? animalRecognizer()
