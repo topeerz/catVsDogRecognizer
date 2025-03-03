@@ -1,0 +1,12 @@
+{
+  "MLModelVersionStringKey" : "--",
+  "MLModelDescriptionKey" : "--",
+  "MLModelCreatorDefinedKey" : {
+    "com.apple.createml.app.tag" : "150.3",
+    "com.apple.createml.version" : "14.7.2",
+    "com.apple.createml.app.version" : "6.1",
+    "com.apple.coreml.model.preview.type" : "imageClassifier"
+  },
+  "MLModelAuthorKey" : "topeerz",
+  "MLModelLicenseKey" : "--"
+}
